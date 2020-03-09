@@ -8,6 +8,7 @@ import os
 import socket
 import ssl
 import time
+import sys
 
 
 logger = logging.getLogger('SSLVerify')
@@ -42,24 +43,24 @@ def ssl_valid_time_remaining(hostname: str) -> datetime.timedelta:
     return expires - datetime.datetime.utcnow()
 
 
-def test_host(hostname: str, buffer_days: int=30) -> str:
+def test_host(hostname: str, buffer_days: int=4):
     """Return test message for hostname cert expiration."""
     try:
         will_expire_in = ssl_valid_time_remaining(hostname)
     except ssl.CertificateError as e:
-        return f'{hostname} cert error {e}'
+        return None, f'{hostname} cert error {e}'
     except ssl.SSLError as e:
-        return f'{hostname} cert error {e}'
-    except socket.timeout as e:
-        return f'{hostname} could not connect'
+        return None, f'{hostname} cert error {e}'
+    except:
+        return None, (f'{hostname} other error %s' % sys.exc_info()[1])
     else:
         if will_expire_in < datetime.timedelta(days=0):
-            return f'{hostname} cert will expired'
+            return f'{hostname} cert has expired', None
         elif will_expire_in < datetime.timedelta(days=buffer_days):
-            return f'{hostname} cert will expire in {will_expire_in}'
+            return f'{hostname} cert will expire in {will_expire_in}', None
         else:
-            return f'{hostname} cert is fine'
-
+            # everything is fine
+            return None,None
 
 if __name__ == '__main__':
     loglevel = os.environ.get('LOGLEVEL', 'INFO')
@@ -72,7 +73,14 @@ if __name__ == '__main__':
     for host in fileinput.input():
         host = host.strip()
         logger.debug('Testing host {}'.format(host))
-        message = test_host(host)
-        print(message)
+        try:
+            resolv = socket.gethostbyname(host)
+            message, error = test_host(host)
+            if message:
+                print(message)
+        except socket.gaierror:
+            # don't output anything in case it does not resolve
+            continue
+
 
     logger.debug('Time: {}'.format(time.time() - start))

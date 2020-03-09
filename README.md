@@ -1,5 +1,7 @@
 # SSL Expiry
 
+*A small fork to make it more silent and more adapter for cron*
+
 A simple script to check the expiration date on a list of domains.
 
 This simple python 3 utility is meant to be deployed as a cron or run from a lambda service.
